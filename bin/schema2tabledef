@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+import json
+import sys
+
+types = {
+   'text': 'varchar(100)',
+   'float': 'numeric(5,5)'
+}
+
+def sql_column_def(column_info):
+   return '''  "%s" %s''' % (column_info[0], types[column_info[1]])
+
+def run():
+   _, table_name = sys.argv
+
+   data = json.loads(sys.stdin.read())
+
+   sql_column_defs = []
+   for k, v in data:
+      sql_column_defs.append(sql_column_def((k, v)))
+
+   column_defs = ", \n".join(sql_column_defs)
+
+   sql = 'create table "%s" (\n%s\n);' % (table_name, column_defs)
+
+   print sql
+
+if __name__ == '__main__':
+   run()

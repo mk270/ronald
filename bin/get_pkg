@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import sys
+import ckanclient
+from optparse import OptionParser
+
+res_types = ['data', 'schema', 'dialect']
+
+def get_res(options, remainder):
+    pkg_name = remainder[0]
+    api_key = options.api_key
+
+    ckan = ckanclient.CkanClient(options.ckan_location, api_key)
+
+    pkg = ckan.package_entity_get(pkg_name)
+    resources = pkg['resources']
+
+    key_name = options.res_type + '-uuid'
+
+    uuid = pkg['extras'][key_name]
+    for r in resources:
+        if r['id'] == uuid:
+            return r['url']
+    raise ValueError
+
+def run():
+    p = OptionParser()
+    p.add_option("-t", "--type", dest="res_type", help="resource type ('data', 'dialect' or 'schema')")
+    p.add_option("-c", "--ckan-location", dest="ckan_location", help="CKAN API URL")
+    p.add_option("-k", "--api-key", dest="api_key", help="CKAN API key")
+
+    options, remainder = p.parse_args()
+
+    if options.res_type is None:
+        print "You must specify a resource type"
+        sys.exit(1)
+
+    if options.res_type not in res_types:
+        print "Resource type must be one of ('data', 'dialect' or 'schema')"
+        sys.exit(1)
+
+    if len(remainder) != 1:
+        print "You must specify one package name"
+        sys.exit(1)
+
+    if options.api_key is None:
+        print "You must specify an API key"
+        sys.exit(1)
+
+    if options.ckan_location is None:
+        print "You must specify a CKAN API location"
+        sys.exit(1)
+
+    print get_res(options, remainder)
+
+if __name__ == '__main__':
+    run()

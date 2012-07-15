@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -eu
+
+pkg=$1
+api_key=$2
+ckan_location=$3
+
+if [ $# != 3 ]; then
+	echo Usage: $(basename $0) package-name api-key ckan-location
+	exit 1
+fi
+
+this_dir=$(dirname $0)
+
+for res_type in data schema dialect
+do
+	wget -q $($this_dir/get_pkg --type=$res_type \
+		--ckan-location=$ckan_location \
+		--api-key=$api_key $pkg)
+done

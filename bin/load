@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+
+import sys
+import json
+from optparse import OptionParser
+from csvdialect import CSVDialect
+
+class RDBMS(object):
+   def __init__(self):
+      assert "Class is abstract and shouldn't be instantiated" is False
+
+   def db(self): pass
+   def cursor(self): pass
+   def commit(self): pass
+   def tables(self): pass
+
+   def load_sql(self, filename, table, csv_dialect):
+      assert isinstance(csv_dialect, CSVDialect)
+
+class MySQL_RDBMS(RDBMS):
+   def __init__(self, user, passwd, db, **conf):
+      import oursql
+      config = conf.copy()
+      config.update({
+            'user': user,
+            'passwd': passwd,
+            'db': db
+            })
+      self.db = oursql.connect(**config)
+      self.db.cursor().execute('set @@sql_mode = 4;')
+
+   def db(self): return self.db
+   def cursor(self): return self.db.cursor()
+   def commit(self): self.db.commit()
+
+   def tables(self):
+      c = self.db.cursor()
+      c.execute('show tables;')
+      for tbl in c.fetchall():
+         yield tbl
+
+   def load_sql(self, filename, table, csv_dialect):
+      super(MySQL_RDBMS, self).load_sql(filename, table, csv_dialect)
+
+      params = csv_dialect.asdict().copy()
+      params.update({
+            'filename': filename,
+            'table': table,
+            })
+
+      if params['fieldenc'] is not None:
+         params.update({
+               'fieldenc': {
+                  True: "optionally ",
+                  False: ""
+                  }[params['encopt']] + "enclosed by '%s'" % params['fieldenc']
+               })
+      else:
+         params.update({'fieldenc': ""})
+
+      sql = '''load data local infile '%(filename)s' into table "%(table)s"
+              fields terminated by '%(colsep)s' %(fieldenc)s
+              lines terminated by '%(linesep)s'
+              ignore 1 lines''' % params
+
+      return sql
+
+def create_table(handle, table_name, filename):
+   with file(filename) as f:
+      sql = f.read()
+
+   table_names = map(lambda i: i.__getitem__(0), list(handle.tables()))
+   with handle.db as c:
+      if table_name in table_names:
+         c.execute('''drop table "%s";''' % table_name)
+
+      print sql
+      c.execute(sql)
+
+def load_data(handle, table_name, csv_file, dlc_file):
+   j = json.load(file(dlc_file))
+   csv_dialect = CSVDialect(**j)
+   
+   sql = handle.load_sql(csv_file, table_name, csv_dialect)
+
+   print sql
+
+   with handle.db as c:
+      c.execute(sql)
+
+def run():
+   p = OptionParser()
+   p.add_option('-u', '--user', dest='user', help='Username')
+   p.add_option('-p', '--pass', dest='passwd', help='Password')
+   p.add_option('-d', '--db', dest='db', help='Database')
+   p.add_option('-t', '--table', dest='table', help='Table name')
+   p.add_option('-c', '--csv', dest='csv_file', help='CSV file')
+   p.add_option('-s', '--sql', dest='sql_file', help='SQL table creation file')
+   p.add_option('-f', '--dialect', dest='dlc_file', help='CSV dialect file')
+
+   options, args = p.parse_args()
+
+   handle = MySQL_RDBMS(options.user, options.passwd, options.db)
+
+   if options.csv_file is None:
+      csv_file = options.table + '.csv'
+   if options.sql_file is None:
+      sql_file = options.table + '.sql'
+   if options.dlc_file is None:
+      dlc_file = options.table + '.dlc'
+
+   create_table(handle, options.table, sql_file)
+   load_data(handle, options.table, csv_file, dlc_file)
+
+if __name__ == '__main__':
+   run()

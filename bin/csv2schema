@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+
+import sys
+import json
+from optparse import OptionParser
+
+def run():
+    p = OptionParser()
+    p.add_option('-d', '--dialect', dest='dialect', help='Dialect file')
+    options, args = p.parse_args()
+
+    assert options.dialect is not None
+
+    with file(options.dialect) as f:
+        dialect = json.load(f)
+
+    delimiter = dialect['colsep'].decode('string-escape')
+
+    with file(args.pop()) as f:
+        header = f.readline()
+        field_names = header.strip().split(delimiter)
+
+        fields = [ (field_name, 'text') for field_name in field_names ]
+        print json.dumps(fields, indent=2)
+
+if __name__ == '__main__':
+    run()
