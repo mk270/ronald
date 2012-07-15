@@ -1,5 +1,6 @@
 library(RMySQL)
 
+# this doesn't tidy up its connection handle yet
 get_ds <- function(name) {
 	   con <- dbConnect(
 			MySQL(), 
