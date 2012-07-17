@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+import ckanclient
+import os
+
+# pkg:
+#   ronalded?
+# res:
+#   anything in csv (mimetype or format or content)
+
+def string_in_potential_null(needle, haystack):
+    if haystack is None:
+        return False
+    else:
+        return needle in haystack
+
+def run():
+    c = ckanclient.CkanClient(os.getenv('CKAN_LOCATION'), 
+                              os.getenv('CKAN_API_KEY'))
+
+    def package_csv_resources(pkg):
+        metadata = c.package_entity_get(pkg)
+
+        def details():
+            for res in metadata['resources']:
+                yield (
+                    metadata['id'],
+                    res['id'], 
+                    string_in_potential_null('csv', res['format']),
+                    string_in_potential_null('csv', res['mimetype']),
+                    res
+                    )
+
+        for pkg_id, res_id, fmtp, mimep, res in details():
+            if fmtp or mimep:
+                #print [ (key, res[key]) for key in res if 'url' in key ]
+                print res['url']
+
+
+    pkg_names = c.package_search('')['results']
+
+    #usefuls = filter(package_has_csv, pkg_names)
+    for pkg in pkg_names:
+        package_csv_resources(pkg)
+
+if __name__ == '__main__':
+    run()
+
